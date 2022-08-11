@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 import scapy.all as sp
 import scapy.layers.inet6 as inet6
 
@@ -40,6 +41,8 @@ p = sp.Ether(src=router_mac, dst=victim_mac) / \
     inet6.IPv6(src=target, dst=victim) / \
     inet6.ICMPv6EchoRequest(id=eid, seq=seq)
 sp.sendp(p, verbose=0)
+
+time.sleep(0.025)
 
 pe = inet6.IPv6(src=victim, dst=target, hlim=hlim) / \
     inet6.ICMPv6EchoReply(id=eid, seq=seq)
