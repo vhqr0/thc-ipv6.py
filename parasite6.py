@@ -69,7 +69,7 @@ def prn(pkt):
 
     pr = None
     if do_reverse:
-        pr = sp.Ether(dst='33:33:00:00:00:01') / \
+        pr = sp.Ether(dst=ippkt.dst) / \
             inet6.IPv6(src=ippkt.src, dst=nspkt.tgt)
         if ipexthdrs:
             pr /= ipexthdrs
