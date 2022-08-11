@@ -1,7 +1,5 @@
 import argparse
 import os
-import signal
-import atexit
 import time
 import functools
 import operator
@@ -39,20 +37,6 @@ if ipexthdrs:
 else:
     ipexthdrs = None
 
-childs = []
-
-
-def kill_childs():
-    for child in childs:
-        try:
-            os.kill(child, signal.SIGKILL)
-        except:
-            pass
-
-
-if do_loop:
-    atexit.register(kill_childs)
-
 
 def prn(pkt):
     ippkt = pkt[inet6.IPv6]
@@ -77,8 +61,7 @@ def prn(pkt):
             inet6.ICMPv6NDOptDstLLAddr(lladdr=sp.conf.iface.mac)
         sp.sendp(pr, verbose=0)
 
-    child = os.fork()
-    if child == 0:
+    if os.fork() == 0:
         time.sleep(0.0002)
         sp.sendp(p, verbose=0)
         if do_reverse:
@@ -89,9 +72,6 @@ def prn(pkt):
                 sp.sendp(p, verbose=0)
                 if do_reverse:
                     sp.sendp(pr, verbose=0)
-    else:
-        if do_loop:
-            childs.append(child)
 
 
 filterstr = 'icmp6[icmp6type]==icmp6-neighborsolicit and not src ::'

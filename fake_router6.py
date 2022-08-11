@@ -1,7 +1,5 @@
 import argparse
 import os
-import signal
-import atexit
 import time
 import functools
 import operator
@@ -48,18 +46,7 @@ if prefix:
     rapkt /= inet6.ICMPv6NDOptPrefixInfo(prefix=str(prefix.network_address),
                                          prefixlen=prefix.prefixlen)
 
-child = 0
-
-
-def kill_child():
-    if child > 0:
-        os.kill(child, signal.SIGKILL)
-
-
-atexit.register(kill_child)
-
-child = os.fork()
-if child == 0:
+if os.fork() == 0:
     p = sp.Ether(**({'src': mac} if mac else {})) / \
         inet6.IPv6(dst='ff02::1', **({'src': ip} if ip else {}))
     if ipexthdrs:
