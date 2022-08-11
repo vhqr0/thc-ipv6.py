@@ -1,4 +1,5 @@
 import argparse
+import sys
 import os
 import time
 import functools
@@ -76,6 +77,8 @@ def prn(pkt):
                 sp.sendp(p, verbose=0)
                 if do_reverse:
                     sp.sendp(pr, verbose=0)
+        else:
+            sys.exit(0)
 
 
 filterstr = 'icmp6[icmp6type]==icmp6-neighborsolicit and not src ::'
